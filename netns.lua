@@ -31,7 +31,7 @@ for _, v in ipairs(_args) do
 			else 
 				_hAddr, _hport, _cport, _proto = _val:match"([^:]*):([^:]*):([^/]*)/?(.*)"
 			end
-			if _proto == nil then _proto = "tcp" end
+			if _proto == nil or _proto == "" then _proto = "tcp" end
 			table.insert(_options.publish, { hAddr = _hAddr, hport = _hport, cport = _cport, proto = _proto })
 		elseif v.id == "subnet" then 
 			_options.subnet = v.value
@@ -104,8 +104,13 @@ if fs.exists(_netnsRunFile) then
 		for _, v in ipairs(_options.publish) do
 			_safe_exec("iptables -t nat -D PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _netnsRunConfig.vecIp .. ":" .. v.cport)
 		end
-		_exec("ip netns delete", _netnsId)
-		_exec("ip link delete", _netnsRunConfig.vehId)
+		if _options.force then 
+			_safe_exec("ip netns delete", _netnsId)
+			_safe_exec("ip link delete", _netnsRunConfig.vehId)
+		else 
+			_exec("ip netns delete", _netnsId)
+			_exec("ip link delete", _netnsRunConfig.vehId)
+		end
 		fs.remove(_netnsRunFile)
 		os.exit(0)
 	else
