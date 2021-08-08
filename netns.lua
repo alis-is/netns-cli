@@ -67,7 +67,6 @@ end
 
 local function _exec(...)
 	local _cmd = string.join(" ", ...)
-	_info("Executing: " .. _cmd)
 	local _ok, _result = _safe_exec(_cmd)
 	if not _ok then 
 		_error("Failed to execute: " .. _cmd)
