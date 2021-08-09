@@ -111,7 +111,7 @@ if fs.exists(_netnsRunFile) then
 			_exec("ip link delete", _netnsRunConfig.vehId)
 		end
 		fs.remove(_netnsRunFile)
-		os.exit(0)
+		if _options.remove then os.exit(0) end
 	else
 		_error("Found runtime info about netns '" .. _netnsId .. "'.")
 		_info("Remove existing runtime info or run with '--force' to automatically cleanup.")
