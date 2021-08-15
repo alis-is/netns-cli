@@ -153,7 +153,11 @@ if not fs.safe_write_file(_netnsRunFile, _hjson.stringify_to_json(runtimeconfig)
 end
 
 _safe_exec("ip netns delete", _netnsId)
-_exec("flock --no-fork -- /var/run/netns.lock ip netns add", _netnsId)
+local _result = _exec("flock --no-fork -- /var/run/netns.lock ip netns add", _netnsId)
+-- patch ubuntu 16.04
+if _result.exitcode == 0 and _result.stderrStream ~= nil and _result.stderrStream:read("a"):match("unrecognized option") then 
+	_exec("flock -- /var/run/netns.lock ip netns add", _netnsId)
+end
 
 local _resolvConf = ""
 for _, v in ipairs(_options.nameservers) do 
