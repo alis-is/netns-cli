@@ -99,10 +99,21 @@ if fs.exists(_netnsRunFile) then
 			os.exit(7)
 		end
 
-		_safe_exec("iptables -t nat -D POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j SNAT --to-source", _netnsRunConfig.outboundAddr)
-		for _, v in ipairs(_options.publish) do
-			_safe_exec("iptables -t nat -D PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _netnsRunConfig.vecIp .. ":" .. v.cport)
+		if _safe_exec("iptables -C FORWARD -s", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT") then
+			_safe_exec("iptables -D FORWARD -s", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT")
 		end
+		if _safe_exec("iptables -C FORWARD -d", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT") then
+			_safe_exec("iptables -D FORWARD -d", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT")
+		end
+		if _safe_exec("iptables -t nat -C POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j SNAT --to-source", _netnsRunConfig.outboundAddr) then
+			_safe_exec("iptables -t nat -D POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j SNAT --to-source", _netnsRunConfig.outboundAddr)
+		end
+		for _, v in ipairs(_options.publish) do
+			if _safe_exec("iptables -t nat -C PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _netnsRunConfig.vecIp .. ":" .. v.cport) then
+				_safe_exec("iptables -t nat -D PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _netnsRunConfig.vecIp .. ":" .. v.cport)
+			end
+		end
+		
 		if _options.force then 
 			_safe_exec("ip netns delete", _netnsId)
 			_safe_exec("ip link delete", _netnsRunConfig.vehId)
@@ -182,10 +193,20 @@ _exec("ip link set", _vehId, "up")
 _exec_in_netns("ip link set", _vecId, "up")
 _exec_in_netns("ip route add default via", _vehIp)
 
-_exec("iptables -t nat -A POSTROUTING -s", _vecIp .. "/30", "-j SNAT --to-source", _options.outboundAddr)
+if not _safe_exec("iptables -C FORWARD -s", _vecIp .. "/30", "-j ACCEPT") then
+	_exec("iptables -A FORWARD -s", _vecIp .. "/30", "-j ACCEPT")
+end
+if not _safe_exec("iptables -C FORWARD -d", _vecIp .. "/30", "-j ACCEPT") then
+	_exec("iptables -A FORWARD -d", _vecIp .. "/30", "-j ACCEPT")
+end
 
+if not _safe_exec("iptables -t nat -C POSTROUTING -s", _vecIp .. "/30", "-j SNAT --to-source", _options.outboundAddr) then
+	_exec("iptables -t nat -A POSTROUTING -s", _vecIp .. "/30", "-j SNAT --to-source", _options.outboundAddr)
+end
 for _, v in ipairs(_options.publish) do
+	if not _safe_exec("iptables -t nat -C PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _vecIp .. ":" .. v.cport) then
 	_exec("iptables -t nat -A PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _vecIp .. ":" .. v.cport)
+	end
 end
 
 _success("Netns '" .. _netnsId .. "' configured.")
