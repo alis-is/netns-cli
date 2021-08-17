@@ -108,12 +108,12 @@ if fs.exists(_netnsRunFile) then
 		if _safe_exec("iptables -t nat -C POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j SNAT --to-source", _netnsRunConfig.outboundAddr) then
 			_safe_exec("iptables -t nat -D POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j SNAT --to-source", _netnsRunConfig.outboundAddr)
 		end
-		for _, v in ipairs(_options.publish) do
+		for _, v in ipairs(_netnsRunConfig.publish) do
 			if _safe_exec("iptables -t nat -C PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _netnsRunConfig.vecIp .. ":" .. v.cport) then
 				_safe_exec("iptables -t nat -D PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _netnsRunConfig.vecIp .. ":" .. v.cport)
 			end
 		end
-		
+
 		if _options.force then 
 			_safe_exec("ip netns delete", _netnsId)
 			_safe_exec("ip link delete", _netnsRunConfig.vehId)
