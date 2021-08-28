@@ -9,7 +9,8 @@ local _options = {
 	subnet = "172.18.0.0/16",
 	nameservers = { "1.1.1.1", "8.8.8.8" },
 	subnet6 = "",
-	remove = false
+	remove = false,
+	defaultOutboundADdr = false
 }
 
 for _, v in ipairs(_args) do
@@ -43,6 +44,8 @@ for _, v in ipairs(_args) do
 			if #_nameservers > 0 then 
 				_options.nameservers = _nameservers
 			end
+		elseif v.id == "default-outbound-addr" then
+			_options.defaultOutboundADdr = true
 		elseif v.id == "remove" then 
 			_options.remove = true
 		elseif v.id == "force" then
@@ -132,7 +135,16 @@ elseif _options.remove then -- nothing to be removed
 	os.exit(0)
 end
 
-if type(_options.outboundAddr) ~= "string" or not _options.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") then 
+if type(_options.outboundAddr) ~= "string" and _options.defaultOutboundADdr then
+	local _result = proc.exec("ip -o route get to 1.1.1.1", {
+		stdout = "pipe",
+		stderr = "pipe"
+	})
+	local _route = _result.stdoutStream:read("a")
+	local _outboundAddr = _route:match("src ([^%.]*%.[^%.]*%.[^%.]*%.[^%s/])")
+	_options.outboundAddr = _outboundAddr
+end
+if not _options.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") then 
 	_error("Invalid netns outbound addr!")
 	os.exit(2)
 end
