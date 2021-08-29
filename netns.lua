@@ -10,7 +10,8 @@ local _options = {
 	nameservers = { "1.1.1.1", "8.8.8.8" },
 	subnet6 = "",
 	remove = false,
-	defaultOutboundADdr = false
+	defaultOutboundADdr = false,
+	localhost = false
 }
 
 for _, v in ipairs(_args) do
@@ -46,8 +47,14 @@ for _, v in ipairs(_args) do
 			end
 		elseif v.id == "default-outbound-addr" then
 			_options.defaultOutboundADdr = true
-		elseif v.id == "remove" then 
+		elseif v.id == "remove" then
 			_options.remove = true
+		elseif v.id == "localhost" then
+			if type(v.value) == "string" then
+				_options.localhost = v.value
+			else
+				_options.localhost = true
+			end
 		elseif v.id == "force" then
 			_options.force = true
 		end
@@ -197,6 +204,9 @@ _exec("ip link set", _vecId, "netns" , _netnsId)
 
 _exec("ip addr add", _vehIp .. "/30", "dev", _vehId)
 _exec_in_netns("ip addr add", _vecIp .. "/30", "dev", _vecId)
+if _options.localhost then
+	_exec_in_netns("ip addr add", "127.0.0.1/8", "dev", type(_options.localhost) == "boolean" and "lo" or _options.localhost)
+end
 
 _exec("sysctl -w net.ipv4.conf.all.forwarding=1")
 _exec_in_netns("sysctl -w net.ipv4.ip_unprivileged_port_start=0")
