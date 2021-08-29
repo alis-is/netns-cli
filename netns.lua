@@ -30,6 +30,7 @@ for _, v in ipairs(_args) do
 			local _hAddr, _hport, _cport, _proto 
 			if n == 1 then 
 				_hport, _cport, _proto = _val:match"([^:]*):([^/]*)/?(.*)"
+				_hAddr = "0.0.0.0"
 			else 
 				_hAddr, _hport, _cport, _proto = _val:match"([^:]*):([^:]*):([^/]*)/?(.*)"
 			end
@@ -227,7 +228,7 @@ if not _safe_exec("iptables -t nat -C POSTROUTING -s", _vecIp .. "/30", "-j SNAT
 end
 for _, v in ipairs(_options.publish) do
 	if not _safe_exec("iptables -t nat -C PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _vecIp .. ":" .. v.cport) then
-	_exec("iptables -t nat -A PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _vecIp .. ":" .. v.cport)
+		_exec("iptables -t nat -A PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _vecIp .. ":" .. v.cport)
 	end
 end
 
