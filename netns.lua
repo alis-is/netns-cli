@@ -6,11 +6,11 @@ local _info, _warn, _error, _success = util.global_log_factory("", "info", "warn
 
 local _options = {
 	publish = {},
-	subnet = "172.18.0.0/16",
+	subnet = "172.29.0.0/16",
 	nameservers = { "1.1.1.1", "8.8.8.8" },
 	subnet6 = "",
 	remove = false,
-	defaultOutboundADdr = false,
+	masquerade = false,
 	localhost = false
 }
 
@@ -46,8 +46,8 @@ for _, v in ipairs(_args) do
 			if #_nameservers > 0 then 
 				_options.nameservers = _nameservers
 			end
-		elseif v.id == "default-outbound-addr" then
-			_options.defaultOutboundADdr = true
+		elseif v.id == "default-outbound-addr" or v.id == "masquerade" then
+			_options.masquerade = true
 		elseif v.id == "remove" then
 			_options.remove = true
 		elseif v.id == "localhost" then
@@ -116,8 +116,14 @@ if fs.exists(_netnsRunFile) then
 		if _safe_exec("iptables -C FORWARD -d", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT") then
 			_safe_exec("iptables -D FORWARD -d", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT")
 		end
-		if _safe_exec("iptables -t nat -C POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j SNAT --to-source", _netnsRunConfig.outboundAddr) then
-			_safe_exec("iptables -t nat -D POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j SNAT --to-source", _netnsRunConfig.outboundAddr)
+		if not _netnsRunConfig.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") and _netnsRunConfig.masquerade then
+			if _safe_exec("iptables -t nat -C POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j MASQUERADE") then
+				_safe_exec("iptables -t nat -D POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j MASQUERADE")
+			end
+		else
+			if _safe_exec("iptables -t nat -C POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j SNAT --to-source", _netnsRunConfig.outboundAddr) then
+				_safe_exec("iptables -t nat -D POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j SNAT --to-source", _netnsRunConfig.outboundAddr)
+			end
 		end
 		for _, v in ipairs(_netnsRunConfig.publish) do
 			if _safe_exec("iptables -t nat -C PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _netnsRunConfig.vecIp .. ":" .. v.cport) then
@@ -143,16 +149,7 @@ elseif _options.remove then -- nothing to be removed
 	os.exit(0)
 end
 
-if type(_options.outboundAddr) ~= "string" and _options.defaultOutboundADdr then
-	local _result = proc.exec("ip -o route get to 1.1.1.1", {
-		stdout = "pipe",
-		stderr = "pipe"
-	})
-	local _route = _result.stdoutStream:read("a")
-	local _outboundAddr = _route:match("src ([^%.]*%.[^%.]*%.[^%.]*%.[^%s/])")
-	_options.outboundAddr = _outboundAddr
-end
-if not _options.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") then 
+if not _options.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") and not _options.masquerade then
 	_error("Invalid netns outbound addr!")
 	os.exit(2)
 end
@@ -223,9 +220,16 @@ if not _safe_exec("iptables -C FORWARD -d", _vecIp .. "/30", "-j ACCEPT") then
 	_exec("iptables -A FORWARD -d", _vecIp .. "/30", "-j ACCEPT")
 end
 
-if not _safe_exec("iptables -t nat -C POSTROUTING -s", _vecIp .. "/30", "-j SNAT --to-source", _options.outboundAddr) then
-	_exec("iptables -t nat -A POSTROUTING -s", _vecIp .. "/30", "-j SNAT --to-source", _options.outboundAddr)
+if not _options.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") and _options.masquerade then
+	if not _safe_exec("iptables -t nat -C POSTROUTING -s", _vecIp .. "/30", "-j MASQUERADE") then
+		_exec("iptables -t nat -A POSTROUTING -s", _vecIp .. "/30", "-j MASQUERADE")
+	end
+else 
+	if not _safe_exec("iptables -t nat -C POSTROUTING -s", _vecIp .. "/30", "-j SNAT --to-source", _options.outboundAddr) then
+		_exec("iptables -t nat -A POSTROUTING -s", _vecIp .. "/30", "-j SNAT --to-source", _options.outboundAddr)
+	end
 end
+
 for _, v in ipairs(_options.publish) do
 	if not _safe_exec("iptables -t nat -C PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _vecIp .. ":" .. v.cport) then
 		_exec("iptables -t nat -A PREROUTING -p", v.proto, "-d", v.hAddr, "--dport", v.hport, "-j DNAT --to-destination", _vecIp .. ":" .. v.cport)
