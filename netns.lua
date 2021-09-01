@@ -116,7 +116,7 @@ if fs.exists(_netnsRunFile) then
 		if _safe_exec("iptables -C FORWARD -d", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT") then
 			_safe_exec("iptables -D FORWARD -d", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT")
 		end
-		if not _netnsRunConfig.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") and _netnsRunConfig.masquerade then
+		if _netnsRunConfig.masquerade then
 			if _safe_exec("iptables -t nat -C POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j MASQUERADE") then
 				_safe_exec("iptables -t nat -D POSTROUTING -s", _netnsRunConfig.vecIp .. "/30", "-j MASQUERADE")
 			end
@@ -149,7 +149,15 @@ elseif _options.remove then -- nothing to be removed
 	os.exit(0)
 end
 
-if not _options.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") and not _options.masquerade then
+local _invalidOutboundAddr = false
+if type(_options.outboundAddr) ~= "string" or not _options.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") then 
+	_invalidOutboundAddr = true
+end
+
+-- we keep masquerade only if outbound addr is not specified
+_options.masquerade = _options.masquerade and _invalidOutboundAddr
+
+if _invalidOutboundAddr and not _options.masquerade then
 	_error("Invalid netns outbound addr!")
 	os.exit(2)
 end
@@ -173,7 +181,8 @@ local runtimeconfig = {
 	vehId = _vehId,
 	vecIp = _vecIp,
 	publish = _options.publish,
-	outboundAddr = _options.outboundAddr
+	outboundAddr = _options.outboundAddr,
+	masquerade = _options.masquerade
 }
 if not fs.safe_write_file(_netnsRunFile, _hjson.stringify_to_json(runtimeconfig)) then
 	error("Failed to write runtime config!")
@@ -220,7 +229,7 @@ if not _safe_exec("iptables -C FORWARD -d", _vecIp .. "/30", "-j ACCEPT") then
 	_exec("iptables -A FORWARD -d", _vecIp .. "/30", "-j ACCEPT")
 end
 
-if not _options.outboundAddr:match("[^%.]*%.[^%.]*%.[^%.]*%.[^/]*") and _options.masquerade then
+if _options.masquerade then
 	if not _safe_exec("iptables -t nat -C POSTROUTING -s", _vecIp .. "/30", "-j MASQUERADE") then
 		_exec("iptables -t nat -A POSTROUTING -s", _vecIp .. "/30", "-j MASQUERADE")
 	end
