@@ -30,7 +30,7 @@ for _, v in ipairs(_args) do
 			local _hAddr, _hport, _cport, _proto 
 			if n == 1 then 
 				_hport, _cport, _proto = _val:match"([^:]*):([^/]*)/?(.*)"
-				_hAddr = "0.0.0.0"
+				_hAddr = "0.0.0.0/0"
 			else 
 				_hAddr, _hport, _cport, _proto = _val:match"([^:]*):([^:]*):([^/]*)/?(.*)"
 			end
@@ -212,7 +212,7 @@ _exec("ip link set", _vecId, "netns" , _netnsId)
 _exec("ip addr add", _vehIp .. "/30", "dev", _vehId)
 _exec_in_netns("ip addr add", _vecIp .. "/30", "dev", _vecId)
 if _options.localhost then
-	_exec_in_netns("ip addr add", "127.0.0.1/8", "dev", type(_options.localhost) == "boolean" and "lo" or _options.localhost)
+	_exec_in_netns("ip link set dev", type(_options.localhost) == "boolean" and "lo" or _options.localhost, "up")
 end
 
 _exec("sysctl -w net.ipv4.conf.all.forwarding=1")
