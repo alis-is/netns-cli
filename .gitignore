@@ -1,1 +1,3 @@
 bin/netns-cli.lua
+tests/tmp/*
+!tests/tmp/.gitkeep

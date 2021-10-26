@@ -10,14 +10,17 @@ Simple cli to create netns to limit outbound IP address.
 
 ```sh
 # create namespace
-eli netns-cli.lua --id=<netns name> --outbound-addr=<ipv4> -p <ipv4>:<hport>:<cport>/<proto>
+eli netns-cli.lua --setup=<netns name> --outbound-addr=<ipv4> -p <ipv4>:<hport>:<cport>/<proto>
 
 # delete namespace
-eli netns-cli.lua --id=<netns name> --remove
+eli netns-cli.lua --remove=<netns name>
+
+# reapply iptable rules
+eli netns-cli.lua --apply-iptables=<netns name>
 ```
 
 # Build
 
 ```sh
-eli ./tools/amalg.lua -o ./bin/netns-cli.lua -s netns.lua ip
+eli ./tools/amalg.lua -o ./bin/netns-cli.lua -s cli.lua netns ip
 ```
