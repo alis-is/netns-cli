@@ -255,7 +255,7 @@ function netns.setup_netns(id, options)
 	_exec("ip addr add", _vehIp .. "/30", "dev", _vehId)
 	_exec_in_netns(id, "ip addr add", _vecIp .. "/30", "dev", _vecId)
 	if options.localhost ~= false then
-		_exec_in_netns("ip link set dev", type(options.localhost) == "string" and options.localhost or "lo", "up")
+		_exec_in_netns(id, "ip link set dev", type(options.localhost) == "string" and options.localhost or "lo", "up")
 	end
 
 	_exec("sysctl -w net.ipv4.conf.all.forwarding=1")
