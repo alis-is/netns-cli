@@ -47,7 +47,9 @@ for _, v in ipairs(_args) do
 				_hAddr, _hport, _cport, _proto = _val:match"([^:]*):([^:]*):([^/]*)/?(.*)"
 			end
 			if _proto == nil or _proto == "" then _proto = "tcp" end
-			table.insert(_options.publish, { hAddr = _hAddr, hport = _hport, cport = _cport, proto = _proto })
+			---@type PublishDef
+			local _publishDef = { hostAddress = _hAddr, clientPort = _cport, hostPort = _hport, protocol = _proto }
+			table.insert(_options.publish, _publishDef)
 		elseif v.id == "subnet" then 
 			_options.subnet = v.value
 		elseif v.id == "nameservers" or v.id == "ns" then
