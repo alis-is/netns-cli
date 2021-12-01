@@ -2,7 +2,9 @@ local _hjson = require"hjson"
 local _ip = require"ip"
 local _info, _warn, _error, _success = util.global_log_factory("","info", "warn", "error", "success")
 
-local netns = {}
+local netns = {
+	CONFIGURATION_VERSION = 1
+}
 
 local function _safe_exec(...)
 	local _cmd = string.join(" ", ...)
@@ -84,7 +86,11 @@ function netns.load_runtime_configuration(id)
 		_error("Failed to parse config file '" .. _netnsRunFile .. "'!")
 		return os.exit(7)
 	end
-	return _netnsRunConfig
+	if _netnsRunConfig.version ~= netns.CONFIGURATION_VERSION then
+		_warn("Invalid runtime configuration version detected: " .. tostring(_netnsRunConfig.version) .. "!")
+		return false, _netnsRunConfig
+	end
+	return true, _netnsRunConfig
 end
 
 local function _lock_netns()
@@ -95,11 +101,20 @@ local function _lock_netns()
 	return fs.lock_file(_lockFile, "w")
 end
 
-
 ---@param id string
 ---@param force boolean
 function netns.remove_netns(id, force)
-	local _netnsRunConfig = netns.load_runtime_configuration(id)
+	local _valid, _netnsRunConfig = netns.load_runtime_configuration(id)
+	if not _valid then
+		local _msg = "Invalid runtime configuration version detected: " .. tostring(_netnsRunConfig and _netnsRunConfig.version) .. ". Can not remove!"
+		if force then
+			_warn(_msg)
+			return
+		else
+			_error(_msg)
+			return os.exit(8)
+		end
+	end
 
 	if _safe_exec("iptables -C FORWARD -s", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT") then
 		_safe_exec("iptables -w 60 -D FORWARD -s", _netnsRunConfig.vecIp .. "/30", "-j ACCEPT")
@@ -142,10 +157,11 @@ end
 
 ---@param runtimeConfig RuntimeConfiguration|string
 function netns.apply_iptables(runtimeConfig)
+	local _valid = true
 	if type(runtimeConfig) == "string" then
-		runtimeConfig = netns.load_runtime_configuration(runtimeConfig)
+		_valid, runtimeConfig = netns.load_runtime_configuration(runtimeConfig)
 	end
-	if type(runtimeConfig) ~= "table" then
+	if type(runtimeConfig) ~= "table" or not _valid then
 		_error("Invalid options!")
 		_info("'--apply-iptables' requires ")
 		return os.exit(8)
@@ -220,6 +236,7 @@ function netns.setup_netns(id, options)
 	local _vecIp = _ip.n_to_ipv4(_range.__hostMin + 1)
 
 	local _runtimeConfig = {
+		version = netns.CONFIGURATION_VERSION,
 		id = id,
 		vehId = _vehId,
 		vecIp = _vecIp,

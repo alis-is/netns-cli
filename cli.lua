@@ -1,5 +1,3 @@
-local _hjson = require"hjson"
-local _ip = require"ip"
 local _netns = require"netns"
 
 local _args = cli.parse_args()
